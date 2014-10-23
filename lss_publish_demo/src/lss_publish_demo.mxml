@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009"
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   width="671" height="518" minWidth="955" minHeight="600" creationComplete="init()">
+	
+	<fx:Script>
+		<![CDATA[
+			import flash.media.H264Level;
+			import flash.media.H264Profile;
+			import flash.media.H264VideoStreamSettings;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			
+			private var connect:NetConnection = new NetConnection() ;
+			private var stream:NetStream = null ;
+			
+			private function init():void 
+			{ 
+				if(Info.dataProvider == null) 
+				{  
+					Info.dataProvider = new ArrayCollection(); 
+				}
+				
+				connect.client = this;
+			} 
+			
+			public function onBWDone ():void{} 
+			
+			//显示字符串
+			private function ShowString(str:String):void 
+			{ 
+				ArrayCollection(Info.dataProvider).addItemAt(str, 0);
+			} 
+			
+			
+			//连接至服务器
+			private function ConnectToServer():void 
+			{
+				connect.objectEncoding = ObjectEncoding.AMF0 ; 
+				connect.connect( rtmpAddr.text ) ;
+				connect.addEventListener(NetStatusEvent.NET_STATUS, EventNetStatus) ;
+			} 
+			
+			//断开连接
+			private function DisconnectFromeServer():void 
+			{ 
+				ShowString("断开连接");
+				stop_publish();
+			} 
+			
+			//断开连接
+			private function publish_to_server():void 
+			{ 
+				ShowString("publish");				
+				
+				var video:Video = new Video(320, 240);
+				video.smoothing = true;
+				video.attachCamera( Camera.getCamera() );
+				idVideoDisplay.addChild( video );				
+				
+				stream = new NetStream(connect) ;  		
+				stream.addEventListener(NetStatusEvent.NET_STATUS, EventNetStatus) ;
+				
+				
+				var mic:flash.media.Microphone = Microphone.getMicrophone();
+				mic.codec = flash.media.SoundCodec.SPEEX;
+//				mic.codec = flash.media.SoundCodec.NELLYMOSER;
+				mic.encodeQuality = 10;
+				mic.rate = new Number(AUDIO_SAMPLE_RATE.text);
+				mic.gain = 50;
+				mic.encodeQuality = 10;
+				mic.framesPerPacket = 1;
+				mic.setSilenceLevel(0, 10000000);
+				mic.setLoopBack(false);
+				mic.setUseEchoSuppression(true);
+				stream.attachAudio( mic ) ; 
+				
+				
+				var camera:flash.media.Camera = Camera.getCamera();
+				
+				var Bitrate:Number = new Number(VideoBitrate_input.text);
+				Bitrate = Bitrate * 1024 / 8;
+				var Quality:Number = new Number(VideoQuality_input.text);
+				
+				var width:Number = new Number(Video_Width.text);
+				var height:Number = new Number(Video_Height.text);
+				var fps:Number = new Number(Video_FPS.text);
+
+				camera.setMode(width, height, fps);
+				camera.setQuality(Bitrate, Quality);
+				
+				var numKeyFrameInterval:Number = new Number(ID_KeyFrameInterval.text);
+				
+				camera.setKeyFrameInterval( numKeyFrameInterval ); 
+				
+				var _h264Settings:H264VideoStreamSettings = new H264VideoStreamSettings();
+				_h264Settings.setProfileLevel(H264Profile.BASELINE, H264Level.LEVEL_5_1);
+				stream.videoStreamSettings = _h264Settings; 
+				
+				stream.attachCamera( camera ) ; 
+				
+				//播放server端的视频流  
+				stream.publish(streamName.text) ;
+			} 
+			
+			//断开连接
+			private function stop_publish():void 
+			{ 
+				ShowString("stop");
+				stream.close();
+			} 
+			
+			//连接成功失败处理
+			private function EventNetStatus(e:NetStatusEvent):void 
+			{  
+				var result:String = e.info.code ; 
+				
+				switch(result) 
+				{  					
+					case "NetConnection.Connect.Success":  
+						publish_to_server();
+						break;  
+					default :  
+						break ;  
+				}  
+				ShowString(result);
+			} 
+		]]>
+	</fx:Script>
+	
+	<s:Button x="11" y="346" label="连接服务器" id="Connect" click="ConnectToServer()"/>
+	<s:List x="338" y="10" width="320" height="499" id="Info" enabled="true"></s:List>
+	<mx:Label x="9" y="267" text="地址："/>
+	<mx:TextArea id="rtmpAddr" x="10" y="286" width="320" height="21" editable="true"
+				 text="rtmp://rtmp.aodianyun.com/app"/>
+	<s:Button x="108" y="346" label="断开连接" id="Disconnect" click="DisconnectFromeServer()"/>
+	<mx:VideoDisplay y="10" width="320" height="240" id="idVideoDisplay" x="10"/>
+	<mx:TextInput id="streamName" x="10" y="315" width="320" editable="true" text="stream"/>
+	<mx:Label x="10" y="399" text="视频码率(kbps)：" id="VideoBitrate"/>
+	<mx:Label x="10" y="428" text="视频质量(0-100)：" id="VideoQuality"/>
+	<mx:TextInput x="121" y="397" id="VideoBitrate_input" width="73" editable="true" text="256"/>
+	<mx:TextInput x="121" y="426" id="VideoQuality_input" width="73" editable="true" text="0"/>
+	<s:Label x="216" y="403" text="视频高"/>
+	<s:Label x="215" y="434" text="视频宽"/>
+	<s:TextInput x="257" y="397" width="73" id="Video_Width" text="320"/>
+	<s:TextInput x="258" y="427" width="72" id="Video_Height" text="240"/>
+	<s:Label x="217" y="459" text="帧率"/>
+	<s:TextInput x="258" y="457" width="72" text="10" id="Video_FPS"/>
+	<s:Label x="10" y="459" text="关键帧间隔(1-48)"/>
+	<s:TextInput x="121" y="457" width="72" id="ID_KeyFrameInterval" text="48"/>
+	<s:Label x="60" y="494" text="音频采样率(只能是5，8,11,22,44)"/>
+	<s:TextInput x="258" y="487" width="72" text="11" id="AUDIO_SAMPLE_RATE"/>
+</s:Application>

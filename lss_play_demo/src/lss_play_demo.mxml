@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>  
+
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" height="378"   
+				creationComplete="init()" width="558">   
+	<mx:Script>  
+		<![CDATA[  
+			import flash.media.Microphone;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.UIComponent;					//ListBox使用
+			
+			private var connect:NetConnection = null ;
+			private var stream:NetStream = null ;
+			
+			private var video:Video = null ;  
+			
+			private function init():void 
+			{ 
+				connect.client = this;
+			} 
+			
+			public function onBWDone ():void{} 
+			
+			private function Play():void 
+			{ 
+				connect = new NetConnection();
+				connect.connect(rtmpAddr.text) ;
+				connect.addEventListener(NetStatusEvent.NET_STATUS,EventProcessUp) ;
+			} 
+			
+			private function StopPlay():void 
+			{ 
+				stream.close();
+				connect.close();
+			} 
+			
+			private function EventProcessUp(e:NetStatusEvent):void 
+			{  
+				var result:String = e.info.code ; 
+				
+				if(Info.dataProvider == null) 
+				{  
+					Info.dataProvider = new ArrayCollection(); 
+				}
+				
+				switch(result) 
+				{  					
+					case "NetConnection.Connect.Success":  
+						PlayStream() ;  
+						break;  
+					
+					case "NetStream.Play.Start": 
+						break;  
+					
+					default :  
+						break ;  
+				}  
+				ArrayCollection(Info.dataProvider).addItemAt(result, 0);
+			}
+			
+			
+			//网络连接成功时 播放server端发布到FMS的wwww视频流  
+			private function PlayStream():void 
+			{  
+				stream = new NetStream(connect) ; 
+				stream.addEventListener(NetStatusEvent.NET_STATUS, EventProcessUp) ;
+				
+				stream.client = this;		
+				
+				video = new Video() ;  
+				video.smoothing = true;
+				video.attachNetStream(stream) ;  
+				video.width = 320 ;  
+				video.height = 240 ;  
+				VideoDisplay.addChild(video) ;
+				
+				stream.play(streamName.text) ;
+				
+				stream.bufferTimeMax = 20;
+				stream.bufferTime = 2;				
+			}  
+			
+			private function StopUp():void 
+			{  
+				stream.close();
+			} 
+			
+			protected function btn_connect_clickHandler(event:MouseEvent):void
+			{
+				Play();
+			}
+			
+			protected function btn_disconnect_clickHandler(event:MouseEvent):void
+			{
+				StopPlay();
+			}
+			
+		]]>  
+	</mx:Script>  
+	<mx:Button id="btn_connect" x="10" y="346" label="连接服务器" click="btn_connect_clickHandler(event)"/>
+	<mx:Button id="btn_disconnect" x="96" y="346" label="断开服务器"
+			   click="btn_disconnect_clickHandler(event)"/>
+	<mx:Label x="9" y="267" text="地址："/>
+	<mx:TextArea id="rtmpAddr" x="10" y="286" width="302" height="21" editable="true" text="rtmp://rtmpplay.aodianyun.com/app"/>
+	<mx:TextInput id="streamName" x="10" y="315" width="302" editable="true" text="stream"/>
+	<mx:VideoDisplay id="VideoDisplay" x="0" y="0" width="320" height="240" />  
+	<mx:List x="320" y="0" width="238" height="378" id="Info"></mx:List>
+
+</mx:Application>  
